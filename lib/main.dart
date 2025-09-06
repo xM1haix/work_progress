@@ -1,9 +1,51 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import "package:flutter/material.dart";
+import "package:flutter/services.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 void main() {
   runApp(const MyApp());
+}
+
+Color getColorAtStep(Color start, Color end, double ratio) => Color.fromARGB(
+      (start.a + (end.a - start.a) * ratio).round(),
+      (start.r + (end.r - start.r) * ratio).round(),
+      (start.g + (end.g - start.g) * ratio).round(),
+      (start.b + (end.b - start.b) * ratio).round(),
+    );
+
+Future<Data> getData() async {
+  final s = await SharedPreferences.getInstance();
+  if (s.getInt("done") == null ||
+      s.getString("title") == null ||
+      s.getInt("total") == null) {
+    throw Exception("No data found");
+  }
+
+  debugPrint(s.getString("title"));
+  debugPrint(s.getInt("done").toString());
+  debugPrint(s.getInt("total").toString());
+  return Data(
+    title: s.getString("title")!,
+    done: s.getInt("done")!,
+    total: s.getInt("total")!,
+  );
+}
+
+class Data {
+  const Data({
+    required this.title,
+    required int done,
+    required this.total,
+  }) : _done = done;
+  final int _done;
+  final int total;
+  final String title;
+  Color get bar =>
+      getColorAtStep(const Color(0xFFFF0000), const Color(0xFF00FF00), ratio);
+  int get done => _done.clamp(0, total);
+  double get ratio => total == 0 ? 0 : done / total;
+  Color get text =>
+      getColorAtStep(const Color(0xFFFFFFFF), const Color(0xFF000000), ratio);
 }
 
 class MyApp extends StatelessWidget {
@@ -12,7 +54,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Work Progress',
+      title: "Work Progress",
       theme: ThemeData.dark(),
       home: const MyHomePage(),
     );
@@ -26,120 +68,9 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class Data {
-  double get ratio => total == 0 ? 0 : done / total;
-  int get done => _done.clamp(0, total).toInt();
-  final int _done, total;
-  final String title;
-  const Data({
-    required this.title,
-    required int done,
-    required this.total,
-  }) : _done = done;
-  Color get bar =>
-      getColorAtStep(const Color(0xFFFF0000), const Color(0xFF00FF00), ratio);
-  Color get text =>
-      getColorAtStep(const Color(0xFFFFFFFF), const Color(0xFF000000), ratio);
-}
-
-Color getColorAtStep(Color start, Color end, double ratio) => Color.fromARGB(
-    (start.alpha + (end.alpha - start.alpha) * ratio).round(),
-    (start.red + (end.red - start.red) * ratio).round(),
-    (start.green + (end.green - start.green) * ratio).round(),
-    (start.blue + (end.blue - start.blue) * ratio).round());
-
-Future<Data> getData() async {
-  final s = await SharedPreferences.getInstance();
-  if (s.getInt('done') == null ||
-      s.getString('title') == null ||
-      s.getInt('total') == null) {
-    throw "No data found";
-  }
-
-  print(s.getString('title'));
-  print(s.getInt('done'));
-  print(s.getInt('total'));
-  return Data(
-    title: s.getString('title')!,
-    done: s.getInt('done')!,
-    total: s.getInt('total')!,
-  );
-}
-
 class _MyHomePageState extends State<MyHomePage> {
-  late String _title = 'Loading';
+  late var _title = "Loading";
   late Future<Data> _future;
-  void _init() {
-    setState(() {
-      _future = getData().then((e) {
-        setState(() {
-          _title = e.title;
-        });
-        return e;
-      });
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _init();
-  }
-
-  void set() async {
-    final title = TextEditingController(),
-        done = TextEditingController(),
-        total = TextEditingController();
-    final x = await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              (title, 'Title', false),
-              (done, 'Done', true),
-              (total, 'Total', true)
-            ]
-                .map(
-                  (e) => TextField(
-                    controller: e.$1,
-                    maxLines: 1,
-                    keyboardType:
-                        e.$3 ? const TextInputType.numberWithOptions() : null,
-                    inputFormatters: e.$3
-                        ? [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d*$'),
-                            ),
-                          ]
-                        : null,
-                    decoration: InputDecoration(
-                      hintText: e.$2,
-                      labelText: e.$2,
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-        actions: [("Save", true), ("Cancel", false)]
-            .map(
-              (e) => TextButton(
-                onPressed: () => Navigator.of(context).pop(e.$2),
-                child: Text(e.$1),
-              ),
-            )
-            .toList(),
-      ),
-    );
-    if (x != true) return;
-    final s = await SharedPreferences.getInstance();
-    await s.setString('title', title.text);
-    await s.setInt('done', done.text.isEmpty ? 0 : int.parse(done.text));
-    await s.setInt('total', total.text.isEmpty ? 0 : int.parse(total.text));
-    _init();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,7 +82,7 @@ class _MyHomePageState extends State<MyHomePage> {
           IconButton(
             onPressed: set,
             icon: const Icon(Icons.add),
-          )
+          ),
         ],
       ),
       body: FutureBuilder(
@@ -169,7 +100,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           if (snapshot.data!.done >= snapshot.data!.total) {
                             return;
                           }
-                          await s.setInt('done', snapshot.data!.done + 1);
+                          await s.setInt("done", snapshot.data!.done + 1);
                           _init();
                         },
                         child: ClipRRect(
@@ -196,7 +127,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 ),
                                 Center(
                                   child: Text(
-                                    'Έκανες το ${snapshot.data!.done} από το ${snapshot.data!.total}',
+                                    "Έκανες το ${snapshot.data!.done} από το ${snapshot.data!.total}",
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 20,
@@ -214,5 +145,76 @@ class _MyHomePageState extends State<MyHomePage> {
                 : const CircularProgressIndicator(),
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> set() async {
+    final title = TextEditingController();
+    final done = TextEditingController();
+    final total = TextEditingController();
+    final x = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              (title, "Title", false),
+              (done, "Done", true),
+              (total, "Total", true),
+            ]
+                .map(
+                  (e) => TextField(
+                    controller: e.$1,
+                    keyboardType: e.$3 ? TextInputType.number : null,
+                    inputFormatters: e.$3
+                        ? [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r"^\d*$"),
+                            ),
+                          ]
+                        : null,
+                    decoration: InputDecoration(
+                      hintText: e.$2,
+                      labelText: e.$2,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        actions: [("Save", true), ("Cancel", false)]
+            .map(
+              (e) => TextButton(
+                onPressed: () => Navigator.of(context).pop(e.$2),
+                child: Text(e.$1),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (x != true) {
+      return;
+    }
+    final s = await SharedPreferences.getInstance();
+    await s.setString("title", title.text);
+    await s.setInt("done", done.text.isEmpty ? 0 : int.parse(done.text));
+    await s.setInt("total", total.text.isEmpty ? 0 : int.parse(total.text));
+    _init();
+  }
+
+  void _init() {
+    setState(() {
+      _future = getData().then((e) {
+        setState(() {
+          _title = e.title;
+        });
+        return e;
+      });
+    });
   }
 }
