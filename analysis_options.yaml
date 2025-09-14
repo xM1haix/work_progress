@@ -7,6 +7,7 @@ linter:
     - always_put_required_named_parameters_first
     - always_use_package_imports
     - annotate_redeclares
+    - public_member_api_docs
     - avoid_annotating_with_dynamic
     - avoid_bool_literals_in_conditional_expressions
     - avoid_classes_with_only_static_members

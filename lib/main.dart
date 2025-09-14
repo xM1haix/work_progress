@@ -6,6 +6,7 @@ void main() {
   runApp(const MyApp());
 }
 
+///Convert the progress to Color from [start] to [end]
 Color getColorAtStep(Color start, Color end, double ratio) => Color.fromARGB(
       (start.a + (end.a - start.a) * ratio).round(),
       (start.r + (end.r - start.r) * ratio).round(),
@@ -13,42 +14,61 @@ Color getColorAtStep(Color start, Color end, double ratio) => Color.fromARGB(
       (start.b + (end.b - start.b) * ratio).round(),
     );
 
+///[Future] which gets the data from [SharedPreferences] and thorw an
+///[Exception] if at least a data was not found or return [Data]
 Future<Data> getData() async {
   final s = await SharedPreferences.getInstance();
-  if (s.getInt("done") == null ||
-      s.getString("title") == null ||
-      s.getInt("total") == null) {
+  final title = s.getString("title");
+  final done = s.getInt("done");
+  final total = s.getInt("total");
+  if (done == null || title == null || total == null) {
     throw Exception("No data found");
   }
-
-  debugPrint(s.getString("title"));
-  debugPrint(s.getInt("done").toString());
-  debugPrint(s.getInt("total").toString());
+  debugPrint(title);
+  debugPrint(done.toString());
+  debugPrint(total.toString());
   return Data(
-    title: s.getString("title")!,
-    done: s.getInt("done")!,
-    total: s.getInt("total")!,
+    title: title,
+    done: done,
+    total: total,
   );
 }
 
+///The object which holds all the data about the task
 class Data {
+  ///
   const Data({
     required this.title,
     required int done,
     required this.total,
   }) : _done = done;
   final int _done;
+
+  ///The amount you need to do
   final int total;
+
+  ///The text which has the shortest description of it
   final String title;
+
+  ///The color of the bar
   Color get bar =>
       getColorAtStep(const Color(0xFFFF0000), const Color(0xFF00FF00), ratio);
+
+  ///The value done
+  ///it s clamped to 0 and [total]
   int get done => _done.clamp(0, total);
+
+  ///The ratio between [done] and [total]
   double get ratio => total == 0 ? 0 : done / total;
+
+  ///The text color based on project
   Color get text =>
       getColorAtStep(const Color(0xFFFFFFFF), const Color(0xFF000000), ratio);
 }
 
+///Main skelethon of the app
 class MyApp extends StatelessWidget {
+  ///
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
@@ -61,7 +81,9 @@ class MyApp extends StatelessWidget {
   }
 }
 
+///Main skelethon of the app
 class MyHomePage extends StatefulWidget {
+  ///
   const MyHomePage({super.key});
 
   @override
@@ -87,62 +109,66 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: FutureBuilder(
         future: _future,
-        builder: (context, snapshot) => snapshot.hasError
-            ? Center(child: Text(snapshot.error.toString()))
-            : snapshot.hasData
-                ? SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 30),
-                    child: Center(
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(30),
-                        onTap: () async {
-                          final s = await SharedPreferences.getInstance();
-                          if (snapshot.data!.done >= snapshot.data!.total) {
-                            return;
-                          }
-                          await s.setInt("done", snapshot.data!.done + 1);
-                          _init();
-                        },
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(30),
-                          child: Container(
-                            height: 400,
-                            width: 150,
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(color: Colors.white, width: 0),
-                            ),
-                            child: Stack(
-                              alignment: Alignment.bottomCenter,
-                              children: [
-                                AnimatedContainer(
-                                  height: snapshot.data!.ratio * 400,
-                                  width: 150,
-                                  decoration: BoxDecoration(
-                                    color: snapshot.data!.bar,
-                                    borderRadius: BorderRadius.circular(27),
-                                  ),
-                                  duration: const Duration(seconds: 1),
-                                ),
-                                Center(
-                                  child: Text(
-                                    "Έκανες το ${snapshot.data!.done} από το ${snapshot.data!.total}",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      color: snapshot.data!.text,
-                                    ),
-                                  ),
-                                ),
-                              ],
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text(snapshot.error.toString()));
+          }
+          if (!snapshot.hasData) {
+            return const CircularProgressIndicator();
+          }
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 30),
+            child: Center(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(30),
+                onTap: () async {
+                  final s = await SharedPreferences.getInstance();
+                  if (snapshot.data!.done >= snapshot.data!.total) {
+                    return;
+                  }
+                  await s.setInt("done", snapshot.data!.done + 1);
+                  _init();
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    height: 400,
+                    width: 150,
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: Colors.white, width: 0),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        AnimatedContainer(
+                          height: snapshot.data!.ratio * 400,
+                          width: 150,
+                          decoration: BoxDecoration(
+                            color: snapshot.data!.bar,
+                            borderRadius: BorderRadius.circular(27),
+                          ),
+                          duration: const Duration(seconds: 1),
+                        ),
+                        Center(
+                          child: Text(
+                            """Έκανες το ${snapshot.data!.done} από το ${snapshot.data!.total}""",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 20,
+                              color: snapshot.data!.text,
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  )
-                : const CircularProgressIndicator(),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
